@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Live Prices</title>
+
+<style>
+    body {
+        background: #0f172a;
+        color: #e2e8f0;
+        font-family: Arial, sans-serif;
+        margin: 0;
+        padding: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        background: #020617;
+    }
+
+    th, td {
+        padding: 12px;
+        text-align: center;
+    }
+
+    th {
+        background: #1e293b;
+    }
+
+    tr {
+        border-bottom: 1px solid #1e293b;
+    }
+
+    .bid { color: #22c55e; }
+    .ask { color: #ef4444; }
+    .spread { color: #38bdf8; }
+
+    .arrow {
+        margin-left: 6px;
+        font-size: 12px;
+        opacity: 0.9;
+    }
+
+    .arrow.up {
+        color: #22c55e;
+    }
+
+    .arrow.down {
+        color: #ef4444;
+    }
+</style>
+</head>
+
+<body>
+
+<h1>Market Prices</h1>
+
+<table id="prices">
+    <thead>
+        <tr>
+            <th>Symbol</th>
+            <th>Bid</th>
+            <th>Ask</th>
+            <th>Spread</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
+
+<script>
+
+
+const WS_URL = "wss://wss.bmsmercosul.com/prices"; 
+
+
+const tableBody = document.querySelector("#prices tbody");
+const state = {};
+
+// cria linha
+function createRow(symbol) {
+    const tr = document.createElement("tr");
+
+    tr.innerHTML = `
+        <td>${symbol}</td>
+        <td class="bid"><span class="value"></span></td>
+        <td class="ask"><span class="value"></span></td>
+        <td class="spread"></td>
+    `;
+
+    tableBody.appendChild(tr);
+    return tr;
+}
+
+// controla seta com timeout seguro
+function setArrow(cell, direction) {
+    if (cell._arrowTimer) {
+        clearTimeout(cell._arrowTimer);
+        cell._arrowTimer = null;
+    }
+
+    const old = cell.querySelector(".arrow");
+    if (old) old.remove();
+
+    if (!direction) return;
+
+    const arrow = document.createElement("span");
+    arrow.classList.add("arrow", direction);
+    arrow.textContent = direction === "up" ? " ↑" : " ↓";
+
+    cell.appendChild(arrow);
+
+    cell._arrowTimer = setTimeout(() => {
+        arrow.remove();
+        cell._arrowTimer = null;
+    }, 3000);
+}
+
+function updateRow(data) {
+    let row = state[data.symbol]?.row;
+
+    if (!row) {
+        row = createRow(data.symbol);
+        state[data.symbol] = { row };
+    }
+
+    const bidCell = row.children[1];
+    const askCell = row.children[2];
+    const spreadCell = row.children[3];
+
+    const bidValue = bidCell.querySelector(".value");
+    const askValue = askCell.querySelector(".value");
+
+    const prevBid = state[data.symbol]?.bid;
+    const prevAsk = state[data.symbol]?.ask;
+
+    if (data.bid === undefined || data.ask === undefined) {
+        console.warn("Tick inválido:", data);
+        return;
+    }
+
+    // BID direção
+    if (prevBid !== undefined) {
+        if (data.bid > prevBid) setArrow(bidCell, "up");
+        else if (data.bid < prevBid) setArrow(bidCell, "down");
+    }
+
+    // ASK direção
+    if (prevAsk !== undefined) {
+        if (data.ask > prevAsk) setArrow(askCell, "up");
+        else if (data.ask < prevAsk) setArrow(askCell, "down");
+    }
+
+    // atualiza valores
+    bidValue.textContent = data.bid;
+    askValue.textContent = data.ask;
+
+    // spread
+    if (data.spread === undefined) {
+        console.warn("Spread ausente:", data);
+        spreadCell.textContent = "-";
+    } else {
+        spreadCell.textContent = data.spread;
+    }
+
+    // salva estado
+    state[data.symbol].bid = data.bid;
+    state[data.symbol].ask = data.ask;
+}
+
+function handleMessage(msg) {
+    const parsed = JSON.parse(msg.data);
+    if (!parsed.data) return;
+
+    const payload = parsed.data;
+
+    if (Array.isArray(payload)) {
+        for (const item of payload) {
+            updateRow(item);
+        }
+    } else {
+        updateRow(payload);
+    }
+}
+
+function connect() {
+    const ws = new WebSocket(WS_URL);
+
+    ws.onmessage = handleMessage;
+
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
+}
+
+connect();
+</script>
+
+</body>
+</html>
