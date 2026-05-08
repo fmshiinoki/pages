@@ -2,7 +2,6 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 <title>Live Prices</title>
 
 <style>
@@ -11,59 +10,37 @@
         color: #e2e8f0;
         font-family: Arial, sans-serif;
         margin: 0;
-        padding: 10px;
-        font-size: 12px;
-    }
-
-    h1 {
-        font-size: 18px;
-        margin: 0 0 10px 0;
+        padding: 20px;
+        font-size: 10px;
     }
 
     table {
         width: 100%;
         border-collapse: collapse;
         background: #020617;
-        font-size: 11px;
     }
 
     th, td {
-        padding: 10px 6px;
+        padding: 12px;
         text-align: center;
-        white-space: nowrap;
     }
 
     th {
         background: #1e293b;
-        font-size: 12px;
     }
 
     tr {
         border-bottom: 1px solid #1e293b;
     }
 
-    /* Células de valor - impedem quebra */
-    td.bid .value, 
-    td.ask .value {
-        display: inline-block;
-        white-space: nowrap;
-    }
-
     .bid { color: #22c55e; }
     .ask { color: #ef4444; }
     .spread { color: #38bdf8; }
 
-    /* Container para valor + seta - sem quebra */
-    td.bid, td.ask {
-        white-space: nowrap;
-    }
-
     .arrow {
-        display: inline-block;
-        margin-left: 4px;
-        font-size: 11px;
+        margin-left: 6px;
+        font-size: 12px;
         opacity: 0.9;
-        white-space: nowrap;
     }
 
     .arrow.up {
@@ -73,59 +50,6 @@
     .arrow.down {
         color: #ef4444;
     }
-
-    /* Responsividade para celular */
-    @media (max-width: 600px) {
-        body {
-            padding: 5px;
-            font-size: 10px;
-        }
-
-        h1 {
-            font-size: 16px;
-            margin: 0 0 8px 0;
-        }
-
-        table {
-            font-size: 10px;
-        }
-
-        th, td {
-            padding: 8px 3px;
-        }
-
-        th {
-            font-size: 11px;
-        }
-
-        /* Reduz tamanho da seta em celular */
-        .arrow {
-            font-size: 9px;
-            margin-left: 2px;
-        }
-
-        /* Permite scroll horizontal se necessário */
-        .table-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-    }
-
-    /* Para telas muito pequenas */
-    @media (max-width: 480px) {
-        td.bid, td.ask {
-            font-size: 9px;
-        }
-        
-        .arrow {
-            font-size: 8px;
-            margin-left: 1px;
-        }
-        
-        th, td {
-            padding: 6px 2px;
-        }
-    }
 </style>
 </head>
 
@@ -133,23 +57,23 @@
 
 <h1>Market Prices</h1>
 
-<div class="table-container">
-    <table id="prices">
-        <thead>
-            <tr>
-                <th>Symbol</th>
-                <th>Bid</th>
-                <th>Ask</th>
-                <th>Spread</th>
-            </tr>
-        </thead>
-        <tbody></tbody>
-    </table>
-</div>
+<table id="prices">
+    <thead>
+        <tr>
+            <th>Symbol</th>
+            <th>Bid</th>
+            <th>Ask</th>
+            <th>Spread</th>
+        </tr>
+    </thead>
+    <tbody></tbody>
+</table>
 
 <script>
 
+
 const WS_URL = "wss://wss.bmsmercosul.com/prices"; 
+
 
 const tableBody = document.querySelector("#prices tbody");
 const state = {};
@@ -158,29 +82,13 @@ const state = {};
 function createRow(symbol) {
     const tr = document.createElement("tr");
 
-    const tdSymbol = document.createElement("td");
-    tdSymbol.textContent = symbol;
-    
-    const tdBid = document.createElement("td");
-    tdBid.className = "bid";
-    const bidSpan = document.createElement("span");
-    bidSpan.className = "value";
-    tdBid.appendChild(bidSpan);
-    
-    const tdAsk = document.createElement("td");
-    tdAsk.className = "ask";
-    const askSpan = document.createElement("span");
-    askSpan.className = "value";
-    tdAsk.appendChild(askSpan);
-    
-    const tdSpread = document.createElement("td");
-    tdSpread.className = "spread";
-    
-    tr.appendChild(tdSymbol);
-    tr.appendChild(tdBid);
-    tr.appendChild(tdAsk);
-    tr.appendChild(tdSpread);
-    
+    tr.innerHTML = `
+        <td>${symbol}</td>
+        <td class="bid"><span class="value"></span></td>
+        <td class="ask"><span class="value"></span></td>
+        <td class="spread"></td>
+    `;
+
     tableBody.appendChild(tr);
     return tr;
 }
@@ -192,7 +100,6 @@ function setArrow(cell, direction) {
         cell._arrowTimer = null;
     }
 
-    // Remove seta antiga
     const old = cell.querySelector(".arrow");
     if (old) old.remove();
 
@@ -200,17 +107,12 @@ function setArrow(cell, direction) {
 
     const arrow = document.createElement("span");
     arrow.classList.add("arrow", direction);
-    arrow.textContent = direction === "up" ? "↑" : "↓";
-    
-    // Sem espaço extra antes da seta
-    arrow.style.whiteSpace = "nowrap";
+    arrow.textContent = direction === "up" ? " ↑" : " ↓";
 
     cell.appendChild(arrow);
 
     cell._arrowTimer = setTimeout(() => {
-        if (arrow && arrow.parentNode) {
-            arrow.remove();
-        }
+        arrow.remove();
         cell._arrowTimer = null;
     }, 3000);
 }
@@ -268,21 +170,17 @@ function updateRow(data) {
 }
 
 function handleMessage(msg) {
-    try {
-        const parsed = JSON.parse(msg.data);
-        if (!parsed.data) return;
+    const parsed = JSON.parse(msg.data);
+    if (!parsed.data) return;
 
-        const payload = parsed.data;
+    const payload = parsed.data;
 
-        if (Array.isArray(payload)) {
-            for (const item of payload) {
-                updateRow(item);
-            }
-        } else {
-            updateRow(payload);
+    if (Array.isArray(payload)) {
+        for (const item of payload) {
+            updateRow(item);
         }
-    } catch (err) {
-        console.error("Erro ao processar mensagem:", err);
+    } else {
+        updateRow(payload);
     }
 }
 
@@ -291,14 +189,8 @@ function connect() {
 
     ws.onmessage = handleMessage;
 
-    ws.onclose = () => {
-        console.log("WebSocket fechado, reconectando em 2s...");
-        setTimeout(connect, 2000);
-    };
-    ws.onerror = () => {
-        console.log("Erro no WebSocket");
-        ws.close();
-    };
+    ws.onclose = () => setTimeout(connect, 2000);
+    ws.onerror = () => ws.close();
 }
 
 connect();
